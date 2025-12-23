@@ -7,7 +7,8 @@ static void
 usage(void)
 {
   printf("usage:\n");
-  printf("  schedctl policy rr|wrr|stride|mlfq\n");
+  printf("  schedctl policy rr [slice]\n");
+  printf("  schedctl policy wrr|stride|mlfq\n");
   printf("  schedctl weight <pid> <w>\n");
   printf("  schedctl slice <pid> <ticks>\n");
   exit(1);
@@ -21,7 +22,10 @@ main(int argc, char *argv[])
 
   // ----------------- policy -----------------
   if (strcmp(argv[1], "policy") == 0) {
-    if (argc != 3)
+    // allow: policy rr
+    // allow: policy rr <slice>
+    // allow: policy wrr|stride|mlfq
+    if (argc < 3 || argc > 4)
       usage();
 
     int pol;
@@ -36,8 +40,24 @@ main(int argc, char *argv[])
     else
       usage();
 
-    if (setschedpolicy(pol) < 0)
+    if (setschedpolicy(pol) < 0) {
       printf("schedctl: setschedpolicy failed\n");
+      exit(1);
+    }
+
+    // RR only: optional default slice for future processes
+    if (argc == 4) {
+      if (pol != SCHED_RR)
+        usage();
+
+      int slice = atoi(argv[3]);
+      // pid==0 means "set RR default for future processes" in your kernel
+      if (setschedslice(0, slice) < 0) {
+        printf("schedctl: set RR default slice failed\n");
+        exit(1);
+      }
+    }
+
     exit(0);
   }
 

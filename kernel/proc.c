@@ -13,9 +13,12 @@ struct proc proc[NPROC];
 struct proc *initproc;
 // newly added fields  + code 
 
+
 int sched_policy = SCHED_RR;
 static const int DEFAULT_WEIGHT = 1;
 static const int DEFAULT_SLICE  = 5; // for example, 5 ticks
+static int rr_default_slice = DEFAULT_SLICE;
+static struct spinlock schedcfg_lock;
 #define BIG_STRIDE 100000
 #define MLFQ_MIN_PRIO 0
 #define MLFQ_MAX_PRIO 2
@@ -71,6 +74,8 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  initlock(&schedcfg_lock, "schedcfg");
+
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->state = UNUSED;
@@ -158,6 +163,15 @@ setschedslice(int pid, int slice)
   // IMPORTANT: slice control only makes sense in RR mode.
   if (sched_policy != SCHED_RR)
     return -1;
+  
+   // pid==0 => set RR template slice for FUTURE processes
+  if (pid == 0) {
+    acquire(&schedcfg_lock);
+    rr_default_slice = slice;
+    release(&schedcfg_lock);
+    return 0;
+  }
+
 
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
@@ -307,8 +321,27 @@ found:
   if (p->stride <= 0)
     p->stride = 1;
   p->pass   = 0;
+  
+  //p->prio = MLFQ_MAX_PRIO;
+//p->time_slice = mlfq_slice_for_prio(p->prio);
+/*NEWLY -ADDED CODE : IF NOT WOKRING , DELETE THIS */
+// policy-dependent init for slice/prio
+if (sched_policy == SCHED_MLFQ) {
   p->prio = MLFQ_MAX_PRIO;
-p->time_slice = mlfq_slice_for_prio(p->prio);
+  p->time_slice = mlfq_slice_for_prio(p->prio);
+} else if (sched_policy == SCHED_RR) {
+  int s;
+  acquire(&schedcfg_lock);
+  s = rr_default_slice;
+  release(&schedcfg_lock);
+
+  p->prio = 0;          // irrelevant outside MLFQ
+  p->time_slice = s;    // <-- RR template applies to *new* processes
+} else {
+  // WRR / STRIDE: ignore RR template
+  p->prio = 0;
+  p->time_slice = DEFAULT_SLICE;
+}
   
   return p;
 }
@@ -440,20 +473,28 @@ kfork(void)
   }
   np->sz = p->sz;
   //newly-added fields
-  np->sched_weight = p->sched_weight;
-  np->time_slice   = p->time_slice;
-  np->ticks_used   = 0;
-  //--------------
-  //NEWLY-ADDED FIELDS : 
-  np->stride = BIG_STRIDE / np->sched_weight;
-  if (np->stride <= 0)
-    np->stride = 1;
-  np->pass   = 0;   // start fresh, or inherit if you want
-  
-  np->prio = p->prio;
+np->sched_weight = p->sched_weight;
 
-  //------------------
-  
+if (sched_policy == SCHED_RR) {
+  int s;
+  acquire(&schedcfg_lock);
+  s = rr_default_slice;
+  release(&schedcfg_lock);
+  np->time_slice = s;
+} else {
+  np->time_slice = p->time_slice;
+}
+
+np->ticks_used  = 0;
+np->total_ticks = 0;
+
+np->stride = BIG_STRIDE / np->sched_weight;
+if (np->stride <= 0)
+  np->stride = 1;
+np->pass = 0;
+
+np->prio = p->prio;
+
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -1136,7 +1177,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 //NEWLY-ADDED CODE : MAKE THE PROC DUNMP MORE VISIBLE 
 void
 procdump(void)
-{ printf("sched_policy=%d\n", sched_policy);
+{ printf("sched_policy=%d rr_default_slice=%d\n", sched_policy, rr_default_slice);
   static char *states[] = {
   [UNUSED]    "unused",
   [USED]      "used",
