@@ -797,7 +797,7 @@ scheduler(void)
   struct cpu *c = mycpu();
 
   c->proc = 0;
-  for(;;){
+  for(;;){  //forever loop
     intr_on();
     intr_off();
 
@@ -840,7 +840,7 @@ scheduler(void)
         // account one schedule-in
         best->pass += best->stride;
 
-        swtch(&c->context, &best->context);
+        swtch(&c->context, &best->context); //save current CPU's register into c->context, load process register from process->contex, then CPU start executing the process code
         c->proc = 0;
         release(&best->lock);
         found = 1;
@@ -969,7 +969,7 @@ else if (sched_policy == SCHED_MLFQ) {
 
 //----------------
 void
-sched(void)
+sched(void) //function for switch back ( maybe after sleep, wait , or yield)
 {
   int intena;
   struct proc *p = myproc();
@@ -984,7 +984,7 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  swtch(&p->context, &mycpu()->context);
+  swtch(&p->context, &mycpu()->context); //switch from the process back to the cpu - the selector
   mycpu()->intena = intena;
 }
 
