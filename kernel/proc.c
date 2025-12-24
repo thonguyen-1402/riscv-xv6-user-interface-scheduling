@@ -819,13 +819,13 @@ scheduler(void)
 
           if (best == 0 || p->pass < best->pass) {
             if (best)
-              release(&best->lock);
-            best = p;
+              release(&best->lock); //in case a new best is found, release the lock of old best 
+            best = p; //keep in mind that we still hold p's lock and now p becomes the new best -> now currently hold the lock of the new best
           } else {
-            release(&p->lock);
+            release(&p->lock); //if the proces is not better than best, release its lock 
           }
         } else {
-          release(&p->lock);
+          release(&p->lock); //release if a process is not RUNNABLe
         }
       }
 
