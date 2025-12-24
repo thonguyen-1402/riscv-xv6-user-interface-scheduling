@@ -27,7 +27,7 @@ int mlfq_slice_for_prio(int prio)
 {
   if (prio == 2) return 2;   // highest priority: short slice -> prio = 2 -> 2 timeslices
   if (prio == 1) return 4;
-  return 8;                 // lowest priority: long slice
+  return 8;                 // lowest priority: long slice -> prior = 1 ->4 timeslices 
 }
 
 
