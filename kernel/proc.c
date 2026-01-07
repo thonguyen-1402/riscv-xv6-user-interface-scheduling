@@ -164,7 +164,7 @@ setschedslice(int pid, int slice)
   if (sched_policy != SCHED_RR)
     return -1;
   
-   // pid==0 => set RR template slice for FUTURE processes
+   // pid==0 => this is not a valid pid, it is only for when we want to change the value of the rr_default_slice from it onwards without affecting the exisiting one 
   if (pid == 0) {
     acquire(&schedcfg_lock);
     rr_default_slice = slice;
@@ -173,7 +173,7 @@ setschedslice(int pid, int slice)
   }
 
 
-  for (p = proc; p < &proc[NPROC]; p++) {
+  for (p = proc; p < &proc[NPROC]; p++) { //find process that is running and matching pid , if found , assign the time slices then release the lock, if not found, release the lock immmediately
     acquire(&p->lock);
     if (p->pid == pid && p->state != UNUSED) {
       p->time_slice = slice;
@@ -189,7 +189,7 @@ setschedslice(int pid, int slice)
 int
 setschedpolicy(int policy)
 {
-  if(policy != SCHED_RR && policy != SCHED_WEIGHTED_RR &&
+  if(policy != SCHED_RR && policy != SCHED_WEIGHTED_RR && //these are the mapped to an int value at the file : user.h
       policy != SCHED_STRIDE && policy != SCHED_MLFQ)
     return -1;
   sched_policy = policy;
