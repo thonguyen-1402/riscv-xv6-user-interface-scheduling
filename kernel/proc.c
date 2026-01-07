@@ -691,7 +691,7 @@ switchuvm
 // there's no process.
 */
 
-/*NEWLY ADDED CODE 
+//NEWLY ADDED CODE 
 void
 scheduler(void)
 {
@@ -749,47 +749,6 @@ scheduler(void)
       }
 
     } 
-
-     /*else if (sched_policy == SCHED_MLFQ) {
-  struct proc *best = 0;
-  int best_prio = -1;
-
-  // pick RUNNABLE proc with highest prio
-  for (p = proc; p < &proc[NPROC]; p++) {
-    acquire(&p->lock);
-    if (p->state == RUNNABLE) {
-      if (p->prio > best_prio) {
-        if (best)
-          release(&best->lock);
-        best_prio = p->prio;
-        best = p;
-      } else {
-        release(&p->lock);
-      }
-    } else {
-      release(&p->lock);
-    }
-  }
-
-  if (best) {
-    struct cpu *c = mycpu();
-
-    // make sure slice matches its queue
-    best->time_slice = mlfq_slice_for_prio(best->prio);
-    best->ticks_used = 0;
-
-    c->proc = best;
-    best->state = RUNNING;
-    best->num_scheduled++;
-
-    found = 1;
-    swtch(&c->context, &best->context);
-
-    c->proc = 0;
-    release(&best->lock);
-  }
-}
-*/
 else if (sched_policy == SCHED_MLFQ) {
   static int last = 0;
   struct proc *best = 0;
